@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Miroir des tokens (source: tailwind.config.ts) */
+  --bg: #ffffff;
+  --surface: #f5f5f4;
+  --ink: #1a1a17;
+  --muted: #55554e;
+  --subtle: #9a9a90;
+  --line: #e9e7e1;
+  --accent: #0d9268;
+  --accent-hover: #0a7a56;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  h1, h2, h3, h4 {
+    @apply font-display font-bold;
+    letter-spacing: -0.02em;
+  }
+  ::selection {
+    background: rgba(13, 146, 104, 0.16);
+  }
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-thumb {
+    background: #dededd;
+    border-radius: 999px;
+    border: 3px solid #fff;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #cfcfce; }
+}
+
+@layer components {
+  /* Carte neutre : blanc, filet 1px, pas d'ombre par défaut */
+  .card {
+    @apply rounded-2xl border border-line bg-paper;
+  }
+  .card-hover {
+    @apply transition-shadow hover:shadow-card;
+  }
+  .card-flat {
+    @apply rounded-2xl border border-line bg-paper;
+  }
+
+  /* Accent de marque réservé (wordmark) */
+  .text-gradient { color: var(--accent); }
+  .text-gradient-gold { color: var(--accent); }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-surface;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  }
+
+  .grain { position: relative; }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .rule-accent { @apply inline-block h-[2px] w-7 rounded-full bg-accent; }
+  .anim-delay-1 { animation-delay: 0.05s; }
+  .anim-delay-2 { animation-delay: 0.1s; }
+  .anim-delay-3 { animation-delay: 0.15s; }
+  .anim-delay-4 { animation-delay: 0.2s; }
+  .anim-delay-5 { animation-delay: 0.25s; }
+}
