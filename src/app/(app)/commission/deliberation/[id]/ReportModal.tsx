@@ -52,7 +52,7 @@ export function ReportModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="no-print fixed inset-0 bg-ink/40 backdrop-blur-sm"
+            className="no-print fixed inset-0 bg-black/40 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.98 }}

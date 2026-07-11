@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
 import { useEffect, useState } from 'react';
 import { initOffline } from '@/lib/offline';
+import { initTheme } from '@/lib/theme';
 
 // v2 : le modèle de données a changé (rôles multiples, postnom, endDate…). Bumper la clé
 // écarte tous les caches persistés d'avant la refonte (évite les plantages de forme).
@@ -22,6 +23,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+
+  // Hydrate le thème (clair/sombre/système) et suit prefers-color-scheme.
+  useEffect(() => {
+    initTheme();
+  }, []);
 
   // Persistance du cache (lectures consultables hors-ligne) + init de la couche offline.
   useEffect(() => {

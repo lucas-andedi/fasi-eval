@@ -57,9 +57,9 @@ export function NotificationBell() {
             initial={{ opacity: 0, y: -8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            className="absolute right-0 z-50 mt-2 w-[360px] overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-card"
+            className="absolute right-0 z-50 mt-2 w-[360px] overflow-hidden rounded-2xl border border-line bg-paper shadow-card"
           >
-            <div className="flex items-center justify-between border-b border-violet-100 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <p className="font-bold text-ink">Notifications</p>
               {unread > 0 && (
                 <button onClick={markAll} className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:text-accent-hover">

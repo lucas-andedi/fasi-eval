@@ -38,7 +38,7 @@ export function Modal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-ink/40"
+            className="absolute inset-0 bg-black/40"
           />
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.97 }}

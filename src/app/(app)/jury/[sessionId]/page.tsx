@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, ChevronRight, ClipboardList, Users } from 'lucide-react';
+import type { AxiosError } from 'axios';
+import { ArrowLeft, ArrowRight, ChevronRight, ClipboardList, ShieldAlert, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
@@ -32,12 +33,15 @@ export default function EtudiantsAEvaluerPage() {
   const sessionId = params.sessionId;
   const qc = useQueryClient();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['my-students', sessionId],
     queryFn: async () =>
       (await api.get<MyStudentRow[]>('/evaluations/my-students', { params: { sessionId } })).data,
     enabled: !!sessionId,
+    retry: false,
   });
+
+  const forbidden = (error as AxiosError)?.response?.status === 403;
 
   const rows = data ?? [];
   const total = rows.length;
@@ -88,6 +92,12 @@ export default function EtudiantsAEvaluerPage() {
 
       {isLoading ? (
         <LoadingBlock label="Chargement des étudiants…" />
+      ) : forbidden ? (
+        <EmptyState
+          icon={ShieldAlert}
+          title="Accès non autorisé"
+          description="Vous n'êtes pas affecté à cette session."
+        />
       ) : isError ? (
         <EmptyState
           icon={ClipboardList}
@@ -101,7 +111,7 @@ export default function EtudiantsAEvaluerPage() {
           description="Cette session ne comporte aucun étudiant à votre charge pour le moment."
         />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white/70">
+        <div className="overflow-hidden rounded-2xl border border-line bg-paper/70">
           {rows.map((r, i) => {
             const name = readName(r);
             const studentId = readStudentId(r);

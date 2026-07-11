@@ -45,7 +45,7 @@ function tierFor(remaining: number, state: TimerStateT, alert1: number, alert2: 
     return { key: 'warn', stroke: '#a67c2b', digits: 'text-warning', label: 'Bientôt terminé', tone: 'warning' };
   return {
     key: 'normal',
-    stroke: '#0d9268',
+    stroke: 'rgb(var(--accent))',
     digits: 'text-ink',
     label: TIMER_STATE_LABEL[state],
     tone: state === 'EN_COURS' ? 'teal' : 'neutral',
@@ -261,7 +261,7 @@ export function Chronometer({
           style={{ width: 280, height: 280 }}
         >
           <svg viewBox="0 0 280 280" className="absolute inset-0 h-full w-full -rotate-90">
-            <circle cx="140" cy="140" r={R} fill="none" stroke="rgba(24,24,27,0.08)" strokeWidth={16} />
+            <circle cx="140" cy="140" r={R} fill="none" stroke="rgb(var(--line-strong))" strokeWidth={16} />
             <motion.circle
               cx="140"
               cy="140"

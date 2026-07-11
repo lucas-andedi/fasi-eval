@@ -9,7 +9,13 @@ import type { Config } from 'tailwindcss';
  * afin de re-skinner toute l'application sans renommer chaque classe existante.
  * → tout devient neutre par défaut ; l'accent n'est appliqué qu'aux endroits choisis.
  */
+// Les tokens couleur pointent vers des variables CSS (canaux R G B) définies dans
+// globals.css. Le format `rgb(var(--x) / <alpha-value>)` préserve les modificateurs
+// d'opacité Tailwind (ex. `text-ink/55`) tout en permettant l'inversion clair/sombre.
+const c = (v: string) => `rgb(var(${v}) / <alpha-value>)`;
+
 const config: Config = {
+  darkMode: 'class',
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
@@ -20,65 +26,75 @@ const config: Config = {
       },
       colors: {
         // Neutres de base (légèrement chauds pour plus de vie)
-        paper: '#ffffff',
-        surface: '#f5f5f4',
-        ink: '#1a1a17',
-        muted: '#55554e',
-        subtle: '#9a9a90',
-        line: '#e9e7e1',
-        'line-strong': '#dcd9d1',
+        paper: c('--paper'),
+        surface: c('--surface'),
+        ink: c('--ink'),
+        muted: c('--muted'),
+        subtle: c('--subtle'),
+        line: c('--line'),
+        'line-strong': c('--line-strong'),
 
-        // Accent unique de marque — émeraude plus vif
+        // Accent unique de marque — émeraude
         accent: {
-          DEFAULT: '#0d9268',
-          hover: '#0a7a56',
-          weak: '#e7f7f0',
-          fg: '#ffffff',
-          50: '#e7f7f0',
-          100: '#c9edde',
-          200: '#98ddc4',
-          600: '#0d9268',
-          700: '#0a7a56',
+          DEFAULT: c('--accent'),
+          hover: c('--accent-hover'),
+          weak: c('--accent-weak'),
+          fg: c('--accent-fg'),
+          50: c('--accent-weak'),
+          100: c('--accent-100'),
+          200: c('--accent-200'),
+          600: c('--accent'),
+          700: c('--accent-700'),
         },
 
         // clé `violet` → échelle NEUTRE (zinc chaud)
         violet: {
-          50: '#fafaf9',
-          100: '#f5f5f4',
-          200: '#e9e7e1',
-          300: '#d6d3ca',
-          400: '#a8a49a',
-          500: '#78756c',
-          600: '#55554e',
-          700: '#3f3f3a',
-          800: '#292927',
-          900: '#1a1a17',
-          950: '#111110',
+          50: c('--violet-50'),
+          100: c('--violet-100'),
+          200: c('--violet-200'),
+          300: c('--violet-300'),
+          400: c('--violet-400'),
+          500: c('--violet-500'),
+          600: c('--violet-600'),
+          700: c('--violet-700'),
+          800: c('--violet-800'),
+          900: c('--violet-900'),
+          950: c('--violet-950'),
         },
         // clé `teal` → accent (états « actif/ouvert »)
         teal: {
-          400: '#2fb891',
-          500: '#0d9268',
-          600: '#0a7a56',
+          400: c('--teal-400'),
+          500: c('--accent'),
+          600: c('--accent-700'),
         },
         // clé `gold` → ambre chaud (sémantique « attention »)
         gold: {
-          300: '#f2d59a',
-          400: '#e6b455',
-          500: '#c98a1e',
-          600: '#a06a15',
-          700: '#7d5314',
+          300: c('--gold-300'),
+          400: c('--gold-400'),
+          500: c('--gold-500'),
+          600: c('--gold-600'),
+          700: c('--gold-700'),
         },
         // Palette d'appoint douce (icônes de statistiques, accents) — vivante mais tamisée
-        amber: { soft: '#fdf4e3', ink: '#b5730f' },
-        sky: { soft: '#e9f2fb', ink: '#2b6cb0' },
-        rose: { soft: '#fdecef', ink: '#c1436a' },
-        grape: { soft: '#f1edfb', ink: '#7355c4' },
+        amber: { soft: c('--amber-soft'), ink: c('--amber-ink') },
+        sky: { soft: c('--sky-soft'), ink: c('--sky-ink') },
+        rose: { soft: c('--rose-soft'), ink: c('--rose-ink') },
+        grape: { soft: c('--grape-soft'), ink: c('--grape-ink') },
 
-        success: '#0f9d63',
-        warning: '#c98a1e',
-        danger: '#d1524f',
-        info: '#2b6cb0',
+        // Fonds/filets doux des badges sémantiques (inversibles en sombre)
+        'success-soft': c('--success-soft'),
+        'success-line': c('--success-line'),
+        'warning-soft': c('--warning-soft'),
+        'warning-line': c('--warning-line'),
+        'danger-soft': c('--danger-soft'),
+        'danger-line': c('--danger-line'),
+        'info-soft': c('--info-soft'),
+        'info-line': c('--info-line'),
+
+        success: c('--success'),
+        warning: c('--warning'),
+        danger: c('--danger'),
+        info: c('--info'),
       },
       borderRadius: {
         lg: '9px',

@@ -297,6 +297,7 @@ export default function DeliberationDetailPage() {
         icon={UserRound}
         title="Étudiants réguliers"
         rows={regular}
+        sessionId={sessionId}
         decisionByStudent={decisionByStudent}
         injunctionByStudent={injunctionByStudent}
         readOnly={decisionsLocked}
@@ -310,6 +311,7 @@ export default function DeliberationDetailPage() {
           title="Étudiants en compensation"
           subtitle="Session de rattrapage — délibérés séparément (RG-22)."
           rows={compensation}
+          sessionId={sessionId}
           decisionByStudent={decisionByStudent}
           injunctionByStudent={injunctionByStudent}
           readOnly={decisionsLocked}
@@ -413,6 +415,7 @@ function StudentSection({
   title,
   subtitle,
   rows,
+  sessionId,
   decisionByStudent,
   injunctionByStudent,
   readOnly,
@@ -423,6 +426,7 @@ function StudentSection({
   title: string;
   subtitle?: string;
   rows: ConsolidatedRow[];
+  sessionId: number;
   decisionByStudent: Map<number, DeliberationView['decisions'][number]>;
   injunctionByStudent: Map<number, DeliberationView['injunctions'][number]>;
   readOnly: boolean;
@@ -448,16 +452,28 @@ function StudentSection({
       ) : (
         <div className="grid gap-3">
           {rows.map((row, i) => (
-            <StudentCard
-              key={row.studentId}
-              row={row}
-              index={i}
-              decision={decisionByStudent.get(row.studentId)}
-              injunction={injunctionByStudent.get(row.studentId)}
-              readOnly={readOnly}
-              saving={savingStudent === row.studentId}
-              onSave={onSave}
-            />
+            <div key={row.studentId}>
+              <StudentCard
+                row={row}
+                index={i}
+                decision={decisionByStudent.get(row.studentId)}
+                injunction={injunctionByStudent.get(row.studentId)}
+                readOnly={readOnly}
+                saving={savingStudent === row.studentId}
+                onSave={onSave}
+              />
+              <div className="mt-1.5 flex justify-end">
+                <a
+                  href={`/print/bulletin/${sessionId}/${row.studentId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-muted transition hover:bg-surface hover:text-ink"
+                >
+                  <FileText className="h-3.5 w-3.5 text-subtle" strokeWidth={1.75} />
+                  Bulletin (PDF)
+                </a>
+              </div>
+            </div>
           ))}
         </div>
       )}

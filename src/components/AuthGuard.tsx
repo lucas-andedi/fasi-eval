@@ -1,15 +1,22 @@
 'use client';
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { getAccessToken } from '@/lib/api';
 import { homeFor } from '@/lib/rbac';
 import type { Role } from '@/lib/types';
 import { Logo } from '@/components/Logo';
 
+/** Espaces autorisés pour un compte juré seul. */
+const JURY_AREAS = ['/jury', '/president', '/compte'];
+function isJuryAreaPath(pathname: string): boolean {
+  return JURY_AREAS.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+}
+
 /** Protège les routes et vérifie le rôle. */
 export function AuthGuard({ children, allow }: { children: React.ReactNode; allow?: Role[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, refresh } = useAuth();
 
   useEffect(() => {
@@ -29,8 +36,14 @@ export function AuthGuard({ children, allow }: { children: React.ReactNode; allo
     }
     if (allow && !allow.some((r) => user.roles.includes(r))) {
       router.replace(homeFor(user.roles));
+      return;
     }
-  }, [user, loading, allow, router]);
+    // Confinement : un compte JURY seul (ni COMMISSION ni ADMIN) reste dans son espace.
+    const juryOnly = !user.roles.includes('COMMISSION') && !user.roles.includes('ADMIN');
+    if (juryOnly && pathname && !isJuryAreaPath(pathname)) {
+      router.replace('/jury');
+    }
+  }, [user, loading, allow, router, pathname]);
 
   if (loading || !user || (allow && !allow.some((r) => user.roles.includes(r)))) {
     return (

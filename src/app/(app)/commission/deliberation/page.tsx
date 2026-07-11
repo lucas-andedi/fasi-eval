@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Gavel, CalendarClock, GraduationCap, ArrowRight, Search } from 'lucide-react';
+import { Gavel, CalendarClock, GraduationCap, ArrowRight, Search, Layers } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { SessionStatus } from '@/lib/types';
 import { fmtDate } from '@/lib/utils';
@@ -28,6 +28,13 @@ interface SessionRow {
   _count?: { students?: number; jury?: number };
 }
 
+/** Promotion renvoyée par GET /reference/promotions. */
+interface PromotionRow {
+  id: number;
+  code: string;
+  label: string;
+}
+
 const DELIB_STATUSES: SessionStatus[] = ['DELIBERATION', 'CLOTUREE'];
 
 export default function DeliberationListPage() {
@@ -37,6 +44,11 @@ export default function DeliberationListPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['sessions', 'deliberation'],
     queryFn: async () => (await api.get<SessionRow[]>('/sessions')).data,
+  });
+
+  const { data: promotions, isLoading: promosLoading } = useQuery({
+    queryKey: ['reference', 'promotions'],
+    queryFn: async () => (await api.get<PromotionRow[]>('/reference/promotions')).data,
   });
 
   const eligible = useMemo(
@@ -157,6 +169,64 @@ export default function DeliberationListPage() {
           ))}
         </div>
       )}
+
+      {/* Délibération par promotion */}
+      <section className="mt-12">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-surface text-muted">
+            <Layers className="h-5 w-5" strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink">Délibérer par promotion</h2>
+            <p className="text-sm text-muted">
+              Consolidez toutes les sessions d'une promotion en une seule délibération.
+            </p>
+          </div>
+        </div>
+
+        {promosLoading ? (
+          <LoadingBlock label="Chargement des promotions…" />
+        ) : !promotions || promotions.length === 0 ? (
+          <EmptyState
+            icon={Layers}
+            title="Aucune promotion"
+            description="Créez une promotion depuis « Promotions » pour délibérer à cette échelle."
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {promotions.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <Link
+                  href={`/commission/deliberation/promotion/${p.id}`}
+                  className="card group flex h-full flex-col gap-4 p-5 transition-all hover:-translate-y-0.5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-surface text-muted">
+                      <Layers className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    <span className="chip bg-surface text-muted border border-line">{p.code}</span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-display text-lg font-bold text-ink">{p.label}</h3>
+                    <p className="mt-0.5 text-sm text-muted">Toutes sessions confondues</p>
+                  </div>
+
+                  <div className="mt-auto flex items-center justify-between border-t border-line pt-3 text-sm font-semibold text-accent-700">
+                    <span>Délibérer la promotion</span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

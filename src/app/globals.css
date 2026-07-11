@@ -7,15 +7,142 @@
   --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Miroir des tokens (source: tailwind.config.ts) */
-  --bg: #ffffff;
-  --surface: #f5f5f4;
-  --ink: #1a1a17;
-  --muted: #55554e;
-  --subtle: #9a9a90;
-  --line: #e9e7e1;
-  --accent: #0d9268;
-  --accent-hover: #0a7a56;
+  /* ————————————————————————————————————————————————————————————————
+     Tokens couleur = canaux « R G B » consommés par tailwind.config.ts
+     via rgb(var(--x) / <alpha-value>). Mode CLAIR (valeurs d'origine).
+     ———————————————————————————————————————————————————————————————— */
+  --paper: 255 255 255;
+  --surface: 245 245 244;
+  --ink: 26 26 23;
+  --muted: 85 85 78;
+  --subtle: 154 154 144;
+  --line: 233 231 225;
+  --line-strong: 220 217 209;
+
+  --accent: 13 146 104;
+  --accent-hover: 10 122 86;
+  --accent-weak: 231 247 240;
+  --accent-fg: 255 255 255;
+  --accent-100: 201 237 222;
+  --accent-200: 152 221 196;
+  --accent-700: 10 122 86;
+
+  --violet-50: 250 250 249;
+  --violet-100: 245 245 244;
+  --violet-200: 233 231 225;
+  --violet-300: 214 211 202;
+  --violet-400: 168 164 154;
+  --violet-500: 120 117 108;
+  --violet-600: 85 85 78;
+  --violet-700: 63 63 58;
+  --violet-800: 41 41 39;
+  --violet-900: 26 26 23;
+  --violet-950: 17 17 16;
+
+  --teal-400: 47 184 145;
+
+  --gold-300: 242 213 154;
+  --gold-400: 230 180 85;
+  --gold-500: 201 138 30;
+  --gold-600: 160 106 21;
+  --gold-700: 125 83 20;
+
+  --amber-soft: 253 244 227;
+  --amber-ink: 181 115 15;
+  --sky-soft: 233 242 251;
+  --sky-ink: 43 108 176;
+  --rose-soft: 253 236 239;
+  --rose-ink: 193 67 106;
+  --grape-soft: 241 237 251;
+  --grape-ink: 115 85 196;
+
+  --success: 15 157 99;
+  --warning: 201 138 30;
+  --danger: 209 82 79;
+  --info: 43 108 176;
+
+  --success-soft: 238 243 238;
+  --success-line: 219 231 221;
+  --warning-soft: 246 241 229;
+  --warning-line: 236 227 207;
+  --danger-soft: 247 236 235;
+  --danger-line: 238 215 212;
+  --info-soft: 234 239 244;
+  --info-line: 217 226 234;
+
+  /* Décoratifs (scrollbar, reflets) */
+  --scrollbar-thumb: #dededd;
+  --scrollbar-track: #ffffff;
+  --shimmer: 255 255 255;
+}
+
+/* ————————————————————————————————————————————————————————————————
+   Mode SOMBRE — near-black chaud, calme et éditorial (pas de #000 pur).
+   Contraste AA préservé ; accent émeraude légèrement éclairci.
+   ———————————————————————————————————————————————————————————————— */
+:root.dark {
+  --paper: 20 20 19;
+  --surface: 30 30 28;
+  --ink: 242 241 236;
+  --muted: 168 166 157;
+  --subtle: 137 135 126;
+  --line: 51 50 46;
+  --line-strong: 66 64 59;
+
+  --accent: 22 176 124;
+  --accent-hover: 46 196 145;
+  --accent-weak: 22 44 37;
+  --accent-fg: 255 255 255;
+  --accent-100: 33 62 52;
+  --accent-200: 45 84 69;
+  --accent-700: 92 210 165;
+
+  --violet-50: 36 35 33;
+  --violet-100: 51 50 46;
+  --violet-200: 60 59 54;
+  --violet-300: 88 86 80;
+  --violet-400: 122 119 111;
+  --violet-500: 150 147 137;
+  --violet-600: 182 179 169;
+  --violet-700: 205 202 193;
+  --violet-800: 224 222 214;
+  --violet-900: 242 241 236;
+  --violet-950: 248 247 243;
+
+  --teal-400: 52 200 158;
+
+  --gold-300: 230 197 122;
+  --gold-400: 224 176 98;
+  --gold-500: 217 167 74;
+  --gold-600: 200 148 58;
+  --gold-700: 178 128 46;
+
+  --amber-soft: 42 36 22;
+  --amber-ink: 224 176 98;
+  --sky-soft: 22 33 46;
+  --sky-ink: 123 176 230;
+  --rose-soft: 44 26 32;
+  --rose-ink: 232 138 165;
+  --grape-soft: 33 29 46;
+  --grape-ink: 179 160 234;
+
+  --success: 52 190 133;
+  --warning: 217 167 74;
+  --danger: 225 120 116;
+  --info: 123 176 230;
+
+  --success-soft: 23 37 29;
+  --success-line: 43 61 49;
+  --warning-soft: 42 36 22;
+  --warning-line: 61 53 33;
+  --danger-soft: 42 26 26;
+  --danger-line: 66 44 44;
+  --info-soft: 22 33 46;
+  --info-line: 36 56 74;
+
+  --scrollbar-thumb: #3a3934;
+  --scrollbar-track: #141413;
+  --shimmer: 120 120 114;
 }
 
 @layer base {
@@ -35,11 +162,11 @@
   }
   ::-webkit-scrollbar { width: 12px; height: 12px; }
   ::-webkit-scrollbar-thumb {
-    background: #dededd;
+    background: var(--scrollbar-thumb);
     border-radius: 999px;
-    border: 3px solid #fff;
+    border: 3px solid var(--scrollbar-track);
   }
-  ::-webkit-scrollbar-thumb:hover { background: #cfcfce; }
+  ::-webkit-scrollbar-thumb:hover { filter: brightness(0.92); }
 }
 
 @layer components {
@@ -55,8 +182,8 @@
   }
 
   /* Accent de marque réservé (wordmark) */
-  .text-gradient { color: var(--accent); }
-  .text-gradient-gold { color: var(--accent); }
+  .text-gradient { color: rgb(var(--accent)); }
+  .text-gradient-gold { color: rgb(var(--accent)); }
 
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium;
@@ -68,7 +195,7 @@
   .skeleton::after {
     content: '';
     @apply absolute inset-0 -translate-x-full animate-shimmer;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+    background: linear-gradient(90deg, transparent, rgb(var(--shimmer) / 0.65), transparent);
   }
 
   .grain { position: relative; }

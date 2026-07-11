@@ -46,7 +46,7 @@ function LoginInner() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Panneau éditorial sobre */}
-      <div className="relative hidden flex-col justify-between bg-ink p-12 text-white lg:flex">
+      <div className="relative hidden flex-col justify-between bg-[#1a1a17] p-12 text-white lg:flex">
         <div className="flex items-center gap-2.5">
           <Logo size={34} />
           <span className="font-display text-[17px] font-bold tracking-tight text-white">

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,9 +24,17 @@ import {
   ScrollText,
   ListChecks,
   Save,
+  FileText,
+  Download,
+  Upload,
+  FileSpreadsheet,
+  Search,
+  UsersRound,
 } from 'lucide-react';
 import { api, apiError } from '@/lib/api';
-import type { Student, UserRow, StudentStatus } from '@/lib/types';
+import { apiMutate } from '@/lib/offline';
+import { downloadBase64, fileToBase64 } from '@/components/import';
+import type { Student, UserRow, StudentStatus, Promotion } from '@/lib/types';
 import { formatSessionDates } from '@/lib/utils';
 import { ROLE_LABEL } from '@/lib/rbac';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -195,6 +203,11 @@ function SessionActions({ session }: { session: SessionDetail }) {
 
   return (
     <>
+      <a href={`/print/programme/${session.id}`} target="_blank" rel="noopener noreferrer">
+        <Button variant="outline">
+          <FileText className="h-4 w-4" /> Programme (PDF)
+        </Button>
+      </a>
       {session.status === 'PREPARATION' && (
         <Button variant="primary" onClick={() => setConfirm('open')}>
           <DoorOpen className="h-4 w-4" /> Ouvrir la session
@@ -560,6 +573,14 @@ function StudentsTab({ session, editable }: { session: SessionDetail; editable: 
         </p>
       )}
 
+      {editable && (
+        <div className="space-y-5">
+          <RegularAssignCard session={session} onDone={() => qc.invalidateQueries({ queryKey: key })} />
+          <RosterImportCard session={session} onDone={() => qc.invalidateQueries({ queryKey: key })} />
+          <CompensationAssignCard session={session} onDone={() => qc.invalidateQueries({ queryKey: key })} />
+        </div>
+      )}
+
       <StudentSection
         title="Réguliers"
         tone="accent"
@@ -833,6 +854,375 @@ function AddStudentModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ————————————————————————————————— Affectation d'étudiants (CU-05) —————————————————————————————————
+
+/** Résultat de POST /sessions/:id/students/bulk et /import. */
+interface BulkAssignResult {
+  created: number;
+  skipped: number;
+  errors?: { studentId?: number; matricule?: string; message: string }[];
+}
+
+/** Ids des étudiants déjà inscrits (réguliers + compensation). */
+function useEnrolledIds(session: SessionDetail): Set<number> {
+  return useMemo(
+    () => new Set([...(session.regular ?? []), ...(session.compensation ?? [])].map((s) => s.id)),
+    [session.regular, session.compensation],
+  );
+}
+
+function toastBulkResult(r: BulkAssignResult, verb = 'affecté') {
+  const parts = [`${r.created} ${verb}${r.created > 1 ? 's' : ''}`];
+  if (r.skipped) parts.push(`${r.skipped} ignoré${r.skipped > 1 ? 's' : ''}`);
+  const errCount = r.errors?.length ?? 0;
+  if (errCount) parts.push(`${errCount} erreur${errCount > 1 ? 's' : ''}`);
+  const msg = parts.join(' · ');
+  if (errCount) toast.warning(msg);
+  else toast.success(msg);
+}
+
+/** Liste multi-sélection d'étudiants avec recherche intégrée. */
+function StudentMultiSelect({
+  students,
+  isLoading,
+  selected,
+  onToggle,
+  emptyLabel = 'Aucun étudiant disponible.',
+}: {
+  students: Student[];
+  isLoading: boolean;
+  selected: Set<number>;
+  onToggle: (id: number) => void;
+  emptyLabel?: string;
+}) {
+  const [query, setQuery] = useState('');
+  const list = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return students.filter(
+      (s) => !q || studentName(s).toLowerCase().includes(q) || s.matricule.toLowerCase().includes(q),
+    );
+  }, [students, query]);
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Nom, prénom ou matricule…"
+          className="pl-9"
+        />
+      </div>
+      <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-line bg-surface p-2">
+        {isLoading ? (
+          <LoadingBlock label="Chargement des étudiants…" />
+        ) : list.length === 0 ? (
+          <p className="py-8 text-center text-sm text-subtle">{emptyLabel}</p>
+        ) : (
+          list.map((s) => {
+            const checked = selected.has(s.id);
+            return (
+              <label
+                key={s.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 transition ${
+                  checked ? 'border-accent-200 bg-accent-weak' : 'border-line bg-paper hover:bg-surface'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(s.id)}
+                  className="h-4 w-4 rounded border-line-strong text-accent focus:ring-accent"
+                />
+                <Avatar first={s.firstName} last={s.lastName} className="h-9 w-9 text-xs" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-ink">{studentName(s)}</span>
+                  <span className="block truncate text-xs text-subtle">
+                    {s.matricule}
+                    {s.department && ` · ${s.department.name}`}
+                    {s.option && ` / ${s.option.name}`}
+                  </span>
+                </span>
+              </label>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RegularAssignCard({ session, onDone }: { session: SessionDetail; onDone: () => void }) {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const enrolled = useEnrolledIds(session);
+
+  const { data: students, isLoading } = useQuery({
+    queryKey: ['students', session.promotionId],
+    queryFn: async () =>
+      (await api.get<Student[]>('/students', { params: { promotionId: session.promotionId } })).data,
+  });
+
+  const available = useMemo(
+    () => (students ?? []).filter((s) => !enrolled.has(s.id)),
+    [students, enrolled],
+  );
+
+  const toggle = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const submit = async () => {
+    if (selected.size === 0) return;
+    setSaving(true);
+    try {
+      const res = await apiMutate(
+        'post',
+        `/sessions/${session.id}/students/bulk`,
+        { students: Array.from(selected).map((studentId) => ({ studentId, status: 'REGULIER' })) },
+        { label: `Affectation de ${selected.size} étudiant(s)` },
+      );
+      if (res.queued) toast('Enregistré hors-ligne — sera synchronisé au retour du réseau.');
+      else toastBulkResult(res.data as BulkAssignResult);
+      setSelected(new Set());
+      onDone();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Affecter des réguliers"
+        subtitle="Sélectionnez les étudiants de la promotion à inscrire comme réguliers."
+      />
+      <div className="mt-4">
+        <StudentMultiSelect
+          students={available}
+          isLoading={isLoading}
+          selected={selected}
+          onToggle={toggle}
+          emptyLabel="Tous les étudiants de la promotion sont déjà inscrits."
+        />
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Button onClick={submit} loading={saving} disabled={selected.size === 0}>
+          <UserPlus className="h-4 w-4" /> Affecter la sélection ({selected.size})
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function CompensationAssignCard({ session, onDone }: { session: SessionDetail; onDone: () => void }) {
+  const [promoId, setPromoId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const enrolled = useEnrolledIds(session);
+
+  const { data: promotions } = useQuery({
+    queryKey: ['reference', 'promotions'],
+    queryFn: async () => (await api.get<Promotion[]>('/reference/promotions')).data,
+  });
+
+  const otherPromos = useMemo(
+    () => (promotions ?? []).filter((p) => p.id !== session.promotionId),
+    [promotions, session.promotionId],
+  );
+
+  const { data: students, isLoading } = useQuery({
+    queryKey: ['students', promoId],
+    queryFn: async () =>
+      (await api.get<Student[]>('/students', { params: { promotionId: promoId } })).data,
+    enabled: promoId != null,
+  });
+
+  const available = useMemo(
+    () => (students ?? []).filter((s) => !enrolled.has(s.id)),
+    [students, enrolled],
+  );
+
+  const toggle = (id: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const submit = async () => {
+    if (selected.size === 0) return;
+    setSaving(true);
+    try {
+      const res = await apiMutate(
+        'post',
+        `/sessions/${session.id}/students/bulk`,
+        { students: Array.from(selected).map((studentId) => ({ studentId, status: 'COMPENSATION' })) },
+        { label: `Compensation de ${selected.size} étudiant(s)` },
+      );
+      if (res.queued) toast('Enregistré hors-ligne — sera synchronisé au retour du réseau.');
+      else toastBulkResult(res.data as BulkAssignResult);
+      setSelected(new Set());
+      onDone();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Ajouter des étudiants à compenser"
+        subtitle="Choisissez une autre promotion, puis les étudiants à inscrire en compensation."
+      />
+      <div className="mt-4 space-y-4">
+        <Field label="Promotion d'origine">
+          <Select
+            value={promoId ?? ''}
+            onChange={(e) => {
+              setPromoId(e.target.value ? Number(e.target.value) : null);
+              setSelected(new Set());
+            }}
+          >
+            <option value="">Sélectionner une promotion…</option>
+            {otherPromos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} — {p.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {promoId != null && (
+          <StudentMultiSelect
+            students={available}
+            isLoading={isLoading}
+            selected={selected}
+            onToggle={toggle}
+            emptyLabel="Aucun étudiant disponible pour cette promotion."
+          />
+        )}
+      </div>
+      <div className="mt-4 flex justify-end">
+        <Button
+          onClick={submit}
+          loading={saving}
+          disabled={selected.size === 0}
+          variant={selected.size === 0 ? 'outline' : 'primary'}
+        >
+          <UsersRound className="h-4 w-4" /> Affecter en compensation ({selected.size})
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function RosterImportCard({ session, onDone }: { session: SessionDetail; onDone: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState<BulkAssignResult | null>(null);
+
+  const downloadTemplate = async () => {
+    setDownloading(true);
+    try {
+      const { data } = await api.get<{ filename: string; fileBase64: string }>(
+        `/sessions/${session.id}/students/roster-template`,
+      );
+      downloadBase64(data.fileBase64, data.filename || `roster-session-${session.id}.xlsx`);
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (inputRef.current) inputRef.current.value = '';
+    if (!file) return;
+    setUploading(true);
+    setResult(null);
+    try {
+      const fileBase64 = await fileToBase64(file);
+      const { data } = await api.post<BulkAssignResult>(
+        `/sessions/${session.id}/students/import`,
+        { fileBase64 },
+      );
+      setResult(data);
+      toastBulkResult(data, 'importé');
+      onDone();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Importer depuis un fichier Excel"
+        subtitle="Téléchargez le modèle pré-rempli de la promotion, complétez-le, puis importez-le."
+      />
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button variant="outline" onClick={downloadTemplate} loading={downloading}>
+          <Download className="h-4 w-4" /> Télécharger le modèle
+        </Button>
+        <input ref={inputRef} type="file" accept=".xlsx" className="sr-only" onChange={onFile} />
+        <Button variant="outline" onClick={() => inputRef.current?.click()} loading={uploading}>
+          <Upload className="h-4 w-4" /> Importer un fichier
+        </Button>
+      </div>
+
+      {result && (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-accent-200 bg-accent-weak px-2.5 py-1 font-medium text-accent-700">
+              <span className="font-bold tabular-nums">{result.created}</span> importés
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 py-1 font-medium text-muted">
+              <span className="font-bold tabular-nums">{result.skipped}</span> ignorés
+            </span>
+            {result.errors && result.errors.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/8 px-2.5 py-1 font-medium text-danger">
+                <span className="font-bold tabular-nums">{result.errors.length}</span> en erreur
+              </span>
+            )}
+          </div>
+          {result.errors && result.errors.length > 0 && (
+            <div className="max-h-40 overflow-y-auto rounded-xl border border-line bg-surface">
+              <ul className="divide-y divide-line text-sm">
+                {result.errors.map((err, i) => (
+                  <li key={i} className="flex gap-2 px-3 py-2">
+                    {err.matricule && (
+                      <span className="shrink-0 font-mono text-xs font-semibold text-danger">
+                        {err.matricule}
+                      </span>
+                    )}
+                    <span className="min-w-0 text-muted">{err.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-subtle">
+        <FileSpreadsheet className="h-3.5 w-3.5" /> Format accepté : .xlsx
+      </p>
+    </Card>
   );
 }
 

@@ -47,6 +47,7 @@ export interface EvalCriterion {
 export interface EvalNote {
   criterionId: number;
   value: number;
+  comment?: string | null;
 }
 
 /** GET /evaluations/:sessionId/:studentId — MON évaluation d'un étudiant. */
@@ -133,13 +134,13 @@ export function ProgressRing({
   return (
     <div className="relative grid place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(24,24,27,0.08)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--line-strong))" strokeWidth={stroke} />
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={r}
           fill="none"
-          stroke="#0d9268"
+          stroke="rgb(var(--accent))"
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={c}

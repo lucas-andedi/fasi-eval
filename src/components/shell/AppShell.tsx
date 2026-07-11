@@ -11,7 +11,7 @@ export function AppShell({ user, children }: { user: AuthUser; children: React.R
   return (
     <div className="min-h-screen">
       {/* Sidebar fixe (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-line bg-white lg:block">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-line bg-paper lg:block">
         <Sidebar user={user} />
       </aside>
 
@@ -22,12 +22,12 @@ export function AppShell({ user, children }: { user: AuthUser; children: React.R
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setMobileOpen(false)}
-              className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
             />
             <motion.aside
               initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
               transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-              className="fixed inset-y-0 left-0 z-50 w-64 border-r border-violet-100 bg-white lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-64 border-r border-line bg-paper lg:hidden"
             >
               <Sidebar user={user} onNavigate={() => setMobileOpen(false)} />
             </motion.aside>

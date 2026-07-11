@@ -156,7 +156,7 @@ export default function AdminAuditPage() {
                 </THead>
                 <TBody>
                   {entries.map((e) => (
-                    <TR key={e.id} className={e.exceptional ? 'bg-[#f6f1e5]' : undefined}>
+                    <TR key={e.id} className={e.exceptional ? 'bg-warning-soft' : undefined}>
                       <TD className="whitespace-nowrap text-xs text-muted">{fmtDateTime(e.createdAt)}</TD>
                       <TD>
                         {e.user ? (
@@ -207,7 +207,7 @@ export default function AdminAuditPage() {
               {entries.map((e) => (
                 <div
                   key={e.id}
-                  className={`card p-4 ${e.exceptional ? 'border-warning/40 bg-[#f6f1e5]' : ''}`}
+                  className={`card p-4 ${e.exceptional ? 'border-warning/40 bg-warning-soft' : ''}`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs text-muted">{fmtDateTime(e.createdAt)}</span>

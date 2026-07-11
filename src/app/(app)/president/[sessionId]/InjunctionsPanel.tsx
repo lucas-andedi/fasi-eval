@@ -61,7 +61,7 @@ export function InjunctionsPanel({
       {/* Formulaire */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card p-6">
         <div className="mb-4 flex items-center gap-2">
-          <div className="grid h-10 w-10 place-items-center rounded-xl border border-[#ece3cf] bg-[#f6f1e5] text-warning">
+          <div className="grid h-10 w-10 place-items-center rounded-xl border border-warning-line bg-warning-soft text-warning">
             <MessageSquareWarning className="h-5 w-5" strokeWidth={1.75} />
           </div>
           <div>

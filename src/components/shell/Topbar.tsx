@@ -6,6 +6,7 @@ import { LogOut, Menu, KeyRound, ChevronDown } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { NotificationBell } from './NotificationBell';
 import { SyncIndicator } from './SyncIndicator';
+import { ThemeToggle } from './ThemeToggle';
 import { useAuth } from '@/lib/auth-store';
 import { ROLE_LABEL } from '@/lib/rbac';
 import type { AuthUser } from '@/lib/types';
@@ -24,7 +25,7 @@ export function Topbar({ user, onMenu }: { user: AuthUser; onMenu: () => void })
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-line bg-paper px-4 sm:px-6">
-      <button onClick={onMenu} className="grid h-10 w-10 place-items-center rounded-xl border border-violet-100 bg-white/70 text-ink/60 lg:hidden">
+      <button onClick={onMenu} className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-surface text-ink/60 lg:hidden">
         <Menu className="h-5 w-5" />
       </button>
       <div className="hidden text-sm font-medium text-ink/40 sm:block">
@@ -32,6 +33,7 @@ export function Topbar({ user, onMenu }: { user: AuthUser; onMenu: () => void })
       </div>
       <div className="ml-auto flex items-center gap-3">
         <SyncIndicator />
+        <ThemeToggle />
         <NotificationBell />
         <div ref={ref} className="relative">
           <button
@@ -53,9 +55,9 @@ export function Topbar({ user, onMenu }: { user: AuthUser; onMenu: () => void })
                 initial={{ opacity: 0, y: -6, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-card"
+                className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-line bg-paper shadow-card"
               >
-                <div className="border-b border-violet-100 px-4 py-3">
+                <div className="border-b border-line px-4 py-3">
                   <p className="text-sm font-bold text-ink">{user.firstName} {user.lastName}</p>
                   <p className="text-xs text-ink/45">{user.email}</p>
                 </div>

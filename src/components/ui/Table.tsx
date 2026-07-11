@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 export function Table({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-violet-100 bg-white/70">
+    <div className="overflow-x-auto rounded-2xl border border-line bg-paper/70">
       <table className={cn('w-full text-sm', className)}>{children}</table>
     </div>
   );

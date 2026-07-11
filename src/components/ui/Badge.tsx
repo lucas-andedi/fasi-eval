@@ -7,11 +7,11 @@ const tones: Record<Tone, string> = {
   neutral: 'bg-surface text-muted border border-line',
   violet: 'bg-surface text-muted border border-line',
   teal: 'bg-accent-weak text-accent-700 border border-accent-200',
-  success: 'bg-[#eef3ee] text-success border border-[#dbe7dd]',
-  warning: 'bg-[#f6f1e5] text-warning border border-[#ece3cf]',
-  gold: 'bg-[#f6f1e5] text-warning border border-[#ece3cf]',
-  danger: 'bg-[#f7eceb] text-danger border border-[#eed7d4]',
-  info: 'bg-[#eaeff4] text-info border border-[#d9e2ea]',
+  success: 'bg-success-soft text-success border border-success-line',
+  warning: 'bg-warning-soft text-warning border border-warning-line',
+  gold: 'bg-warning-soft text-warning border border-warning-line',
+  danger: 'bg-danger-soft text-danger border border-danger-line',
+  info: 'bg-info-soft text-info border border-info-line',
 };
 
 export function Badge({

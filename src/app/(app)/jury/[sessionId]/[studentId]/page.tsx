@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { StudentStatusBadge } from '@/components/ui/status';
-import { LoadingBlock } from '@/components/ui/Feedback';
+import { LoadingBlock, EmptyState } from '@/components/ui/Feedback';
 import {
   ConfidentialityBanner,
   ProgressRing,
@@ -32,15 +32,20 @@ export default function EvaluationFormPage() {
   const qc = useQueryClient();
   const queryKey = ['evaluation', sessionId, studentId];
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey,
     queryFn: async () =>
       (await api.get<EvaluationDetail>(`/evaluations/${sessionId}/${studentId}`)).data,
     enabled: !!sessionId && !!studentId,
+    retry: false,
   });
+
+  const forbidden = (error as AxiosError)?.response?.status === 403;
 
   /* Valeurs saisies : criterionId -> chaîne (permet les décimales). */
   const [values, setValues] = useState<Record<number, string>>({});
+  /* Commentaires facultatifs par critère : criterionId -> texte libre. */
+  const [comments, setComments] = useState<Record<number, string>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const expiredFired = useRef(false);
@@ -52,16 +57,29 @@ export default function EvaluationFormPage() {
   useEffect(() => {
     if (!data) return;
     const map: Record<number, string> = {};
-    for (const n of data.notes ?? []) map[n.criterionId] = String(n.value);
+    const cmap: Record<number, string> = {};
+    for (const n of data.notes ?? []) {
+      map[n.criterionId] = String(n.value);
+      if (n.comment) cmap[n.criterionId] = n.comment;
+    }
     if (data.status !== 'VERROUILLEE') {
       try {
         const draft = JSON.parse(localStorage.getItem(draftKey) ?? 'null');
-        if (draft && typeof draft === 'object') Object.assign(map, draft);
+        if (draft && typeof draft === 'object') {
+          // Nouveau format { values, comments } ; on tolère l'ancien format plat (= values).
+          if (draft.values || draft.comments) {
+            if (draft.values && typeof draft.values === 'object') Object.assign(map, draft.values);
+            if (draft.comments && typeof draft.comments === 'object') Object.assign(cmap, draft.comments);
+          } else {
+            Object.assign(map, draft);
+          }
+        }
       } catch {
         /* brouillon illisible */
       }
     }
     setValues(map);
+    setComments(cmap);
     expiredFired.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -70,11 +88,11 @@ export default function EvaluationFormPage() {
   useEffect(() => {
     if (!data || data.status === 'VERROUILLEE') return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify(values));
+      localStorage.setItem(draftKey, JSON.stringify({ values, comments }));
     } catch {
       /* quota */
     }
-  }, [values, data, draftKey]);
+  }, [values, comments, data, draftKey]);
 
   const criteria = useMemo<EvalCriterion[]>(() => data?.criteria ?? [], [data]);
   const deadlineMs = data?.modificationDeadline ? new Date(data.modificationDeadline).getTime() : null;
@@ -116,7 +134,11 @@ export default function EvaluationFormPage() {
     mutationFn: async (validate: boolean) => {
       const notes = criteria
         .filter((c) => isFilled(values[c.id]))
-        .map((c) => ({ criterionId: c.id, value: toNumber(values[c.id]) }));
+        .map((c) => ({
+          criterionId: c.id,
+          value: toNumber(values[c.id]),
+          comment: comments[c.id]?.trim() || null,
+        }));
       // Passe par la couche hors-ligne : si le réseau est coupé, la saisie est mise en
       // file d'attente et synchronisée au retour du réseau (RG SA-06c).
       return apiMutate('post', `/evaluations/${sessionId}/${studentId}`, { notes, validate }, {
@@ -144,6 +166,7 @@ export default function EvaluationFormPage() {
   });
 
   const setVal = (id: number, raw: string) => setValues((v) => ({ ...v, [id]: clampGrade(raw) }));
+  const setComment = (id: number, text: string) => setComments((c) => ({ ...c, [id]: text }));
 
   const student = data?.student;
   const studentStatus = data?.studentStatus ?? student?.status ?? 'REGULIER';
@@ -159,6 +182,12 @@ export default function EvaluationFormPage() {
 
       {isLoading ? (
         <LoadingBlock label="Chargement de l'évaluation…" />
+      ) : forbidden ? (
+        <EmptyState
+          icon={ShieldAlert}
+          title="Accès non autorisé"
+          description="Vous n'êtes pas affecté à cette session."
+        />
       ) : isError || !data ? (
         <div className="card p-10 text-center">
           <p className="font-semibold text-ink">Impossible de charger cette évaluation</p>
@@ -213,12 +242,14 @@ export default function EvaluationFormPage() {
           </div>
 
           {locked ? (
-            <LockedNotes criteria={criteria} values={values} />
+            <LockedNotes criteria={criteria} values={values} comments={comments} />
           ) : (
             <EditableForm
               criteria={criteria}
               values={values}
               setVal={setVal}
+              comments={comments}
+              setComment={setComment}
               filledCount={filledCount}
               allFilled={allFilled}
               saving={mutation.isPending}
@@ -321,6 +352,8 @@ function EditableForm({
   criteria,
   values,
   setVal,
+  comments,
+  setComment,
   filledCount,
   allFilled,
   saving,
@@ -331,6 +364,8 @@ function EditableForm({
   criteria: EvalCriterion[];
   values: Record<number, string>;
   setVal: (id: number, raw: string) => void;
+  comments: Record<number, string>;
+  setComment: (id: number, text: string) => void;
   filledCount: number;
   allFilled: boolean;
   saving: boolean;
@@ -364,7 +399,15 @@ function EditableForm({
       {/* Critères */}
       <div className="mt-5 space-y-3">
         {criteria.map((c, i) => (
-          <CriterionRow key={c.id} criterion={c} index={i} value={values[c.id] ?? ''} onChange={(raw) => setVal(c.id, raw)} />
+          <CriterionRow
+            key={c.id}
+            criterion={c}
+            index={i}
+            value={values[c.id] ?? ''}
+            onChange={(raw) => setVal(c.id, raw)}
+            comment={comments[c.id] ?? ''}
+            onComment={(text) => setComment(c.id, text)}
+          />
         ))}
       </div>
 
@@ -405,11 +448,15 @@ function CriterionRow({
   index,
   value,
   onChange,
+  comment,
+  onComment,
 }: {
   criterion: EvalCriterion;
   index: number;
   value: string;
   onChange: (raw: string) => void;
+  comment: string;
+  onComment: (text: string) => void;
 }) {
   const filled = isFilled(value);
   const num = toNumber(value);
@@ -449,8 +496,8 @@ function CriterionRow({
           className="h-2 flex-1 cursor-pointer appearance-none rounded-full accent-accent [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-soft"
           style={{
             background: filled
-              ? `linear-gradient(90deg, #0d9268 0%, #0d9268 ${pct}%, #e8e8e6 ${pct}%, #e8e8e6 100%)`
-              : '#e8e8e6',
+              ? `linear-gradient(90deg, rgb(var(--accent)) 0%, rgb(var(--accent)) ${pct}%, rgb(var(--line-strong)) ${pct}%, rgb(var(--line-strong)) 100%)`
+              : 'rgb(var(--line-strong))',
           }}
         />
         <div className="w-24 shrink-0">
@@ -469,6 +516,17 @@ function CriterionRow({
           />
         </div>
       </div>
+
+      <div className="mt-3">
+        <textarea
+          value={comment}
+          onChange={(e) => onComment(e.target.value)}
+          rows={2}
+          placeholder="Commentaire (facultatif)"
+          aria-label={`Commentaire du critère ${criterion.number}`}
+          className="w-full resize-y rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-subtle transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      </div>
     </motion.div>
   );
 }
@@ -478,9 +536,11 @@ function CriterionRow({
 function LockedNotes({
   criteria,
   values,
+  comments,
 }: {
   criteria: EvalCriterion[];
   values: Record<number, string>;
+  comments: Record<number, string>;
 }) {
   return (
     <div className="mt-5 space-y-3">
@@ -492,26 +552,34 @@ function LockedNotes({
         {criteria.map((c, i) => {
           const filled = isFilled(values[c.id]);
           const num = toNumber(values[c.id]);
+          const cmt = comments[c.id]?.trim();
           return (
             <motion.div
               key={c.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
-              className="card-flat flex items-center justify-between gap-4 p-4"
+              className="card-flat p-4"
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface text-xs font-bold text-muted">
-                  {c.number}
-                </span>
-                <p className="truncate text-sm font-semibold text-ink">{c.label}</p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-surface text-xs font-bold text-muted">
+                    {c.number}
+                  </span>
+                  <p className="truncate text-sm font-semibold text-ink">{c.label}</p>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-1">
+                  <span className="font-mono text-xl font-bold tabular text-ink">
+                    {filled ? fmtGrade(num) : '—'}
+                  </span>
+                  <span className="text-xs font-semibold text-subtle">/20</span>
+                </div>
               </div>
-              <div className="flex shrink-0 items-baseline gap-1">
-                <span className="font-mono text-xl font-bold tabular text-ink">
-                  {filled ? fmtGrade(num) : '—'}
-                </span>
-                <span className="text-xs font-semibold text-subtle">/20</span>
-              </div>
+              {cmt && (
+                <p className="mt-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted">
+                  {cmt}
+                </p>
+              )}
             </motion.div>
           );
         })}
