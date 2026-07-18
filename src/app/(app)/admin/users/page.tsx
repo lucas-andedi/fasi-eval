@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
   Pencil,
   KeyRound,
+  Mail,
   Power,
   PowerOff,
   Copy,
@@ -100,14 +101,35 @@ export default function AdminUsersPage() {
 
   const resetMut = useMutation({
     mutationFn: async (user: UserRow) => ({
-      res: (await api.post<{ tempPassword: string }>(`/users/${user.id}/reset-password`)).data,
+      res: (await api.post<{ tempPassword: string; emailed: boolean }>(`/users/${user.id}/reset-password`)).data,
       user,
     }),
     onSuccess: ({ res, user }) => {
       invalidate();
       setConfirmReset(null);
       setCredential({ tempPassword: res.tempPassword, user, kind: 'reset' });
-      toast.success('Mot de passe réinitialisé.');
+      toast.success(
+        res.emailed
+          ? `Mot de passe réinitialisé — accès envoyés à ${user.email}.`
+          : 'Mot de passe réinitialisé. E-mail indisponible : communiquez les accès affichés.',
+      );
+    },
+    onError: (e) => toast.error(apiError(e)),
+  });
+
+  const resendMut = useMutation({
+    mutationFn: async (user: UserRow) => ({
+      res: (await api.post<{ tempPassword: string; emailed: boolean }>(`/users/${user.id}/resend-credentials`)).data,
+      user,
+    }),
+    onSuccess: ({ res, user }) => {
+      invalidate();
+      setCredential({ tempPassword: res.tempPassword, user, kind: 'reset' });
+      toast.success(
+        res.emailed
+          ? `Accès renvoyés par e-mail à ${user.email}.`
+          : 'E-mail indisponible : communiquez les accès affichés.',
+      );
     },
     onError: (e) => toast.error(apiError(e)),
   });
@@ -243,6 +265,7 @@ export default function AdminUsersPage() {
                           onEdit={() => setEditUser(u)}
                           onToggle={() => setConfirm({ user: u, action: u.active ? 'deactivate' : 'activate' })}
                           onReset={() => setConfirmReset(u)}
+                          onResend={() => resendMut.mutate(u)}
                         />
                       </TD>
                     </TR>
@@ -271,6 +294,7 @@ export default function AdminUsersPage() {
                         onEdit={() => setEditUser(u)}
                         onToggle={() => setConfirm({ user: u, action: u.active ? 'deactivate' : 'activate' })}
                         onReset={() => setConfirmReset(u)}
+                        onResend={() => resendMut.mutate(u)}
                       />
                     </div>
                   </div>
@@ -386,11 +410,13 @@ function RowMenu({
   onEdit,
   onToggle,
   onReset,
+  onResend,
 }: {
   user: UserRow;
   onEdit: () => void;
   onToggle: () => void;
   onReset: () => void;
+  onResend: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -427,6 +453,7 @@ function RowMenu({
             className="absolute right-0 z-20 mt-1 w-56 overflow-hidden rounded-xl border border-line bg-paper p-1 text-left shadow-card"
           >
             <MenuItem icon={Pencil} label="Modifier" onClick={() => act(onEdit)} />
+            <MenuItem icon={Mail} label="Renvoyer les accès (e-mail)" onClick={() => act(onResend)} />
             <MenuItem icon={KeyRound} label="Réinitialiser le mot de passe" onClick={() => act(onReset)} />
             <div className="my-1 h-px bg-line" />
             {user.active ? (

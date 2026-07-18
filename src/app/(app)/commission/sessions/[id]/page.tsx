@@ -885,6 +885,11 @@ function toastBulkResult(r: BulkAssignResult, verb = 'affecté') {
 }
 
 /** Liste multi-sélection d'étudiants avec recherche intégrée. */
+type AssignStudent = Student & {
+  available?: boolean;
+  assignedTo?: { sessionId: number; sessionTitle: string } | null;
+};
+
 function StudentMultiSelect({
   students,
   isLoading,
@@ -892,7 +897,7 @@ function StudentMultiSelect({
   onToggle,
   emptyLabel = 'Aucun étudiant disponible.',
 }: {
-  students: Student[];
+  students: AssignStudent[];
   isLoading: boolean;
   selected: Set<number>;
   onToggle: (id: number) => void;
@@ -924,20 +929,27 @@ function StudentMultiSelect({
           <p className="py-8 text-center text-sm text-subtle">{emptyLabel}</p>
         ) : (
           list.map((s) => {
+            const busy = s.available === false;
             const checked = selected.has(s.id);
-            return (
-              <label
-                key={s.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 transition ${
+            const rowCls = busy
+              ? 'flex items-center gap-3 rounded-xl border border-line bg-surface p-2.5 opacity-70'
+              : `flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 transition ${
                   checked ? 'border-accent-200 bg-accent-weak' : 'border-line bg-paper hover:bg-surface'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggle(s.id)}
-                  className="h-4 w-4 rounded border-line-strong text-accent focus:ring-accent"
-                />
+                }`;
+            const inner = (
+              <>
+                {busy ? (
+                  <span className="grid h-4 w-4 shrink-0 place-items-center text-subtle" aria-hidden>
+                    <Lock className="h-3.5 w-3.5" />
+                  </span>
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggle(s.id)}
+                    className="h-4 w-4 rounded border-line-strong text-accent focus:ring-accent"
+                  />
+                )}
                 <Avatar first={s.firstName} last={s.lastName} className="h-9 w-9 text-xs" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-ink">{studentName(s)}</span>
@@ -947,6 +959,24 @@ function StudentMultiSelect({
                     {s.option && ` / ${s.option.name}`}
                   </span>
                 </span>
+                {busy ? (
+                  <span className="shrink-0 rounded-md bg-amber-soft px-2 py-0.5 text-[11px] font-semibold text-amber-ink">
+                    Affecté à {s.assignedTo?.sessionTitle ?? 'un autre jury'}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-md bg-accent-weak px-2 py-0.5 text-[11px] font-semibold text-accent-700">
+                    Disponible
+                  </span>
+                )}
+              </>
+            );
+            return busy ? (
+              <div key={s.id} className={rowCls} title={`Déjà affecté à « ${s.assignedTo?.sessionTitle ?? ''} »`}>
+                {inner}
+              </div>
+            ) : (
+              <label key={s.id} className={rowCls}>
+                {inner}
               </label>
             );
           })
@@ -961,12 +991,17 @@ function RegularAssignCard({ session, onDone }: { session: SessionDetail; onDone
   const [saving, setSaving] = useState(false);
   const enrolled = useEnrolledIds(session);
 
+  // N'affiche que les étudiants réellement affectables : ceux de la promotion qui ne sont
+  // pas déjà affectés (régulier) à un autre jury en cours (endpoint dédié côté serveur).
+  // Tous les étudiants de la promotion, annotés de leur disponibilité (available / assignedTo).
   const { data: students, isLoading } = useQuery({
-    queryKey: ['students', session.promotionId],
+    queryKey: ['assignable-students', session.id],
     queryFn: async () =>
-      (await api.get<Student[]>('/students', { params: { promotionId: session.promotionId } })).data,
+      (await api.get<AssignStudent[]>(`/sessions/${session.id}/students/assignable`)).data,
   });
 
+  // On retire ceux déjà dans CETTE session (affichés à part) ; les affectés à un AUTRE jury
+  // restent listés mais grisés (mention « Affecté à … ») par StudentMultiSelect.
   const available = useMemo(
     () => (students ?? []).filter((s) => !enrolled.has(s.id)),
     [students, enrolled],
