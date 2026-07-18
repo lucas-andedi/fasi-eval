@@ -12,14 +12,6 @@ import { useAuth } from '@/lib/auth-store';
 import { apiError } from '@/lib/api';
 import { homeFor } from '@/lib/rbac';
 
-const DEMO = [
-  ['Commission', 'commission'],
-  ['Président', 'president'],
-  ['Jury', 'jury1'],
-  ['Mixte', 'mixte'],
-  ['Admin', 'admin'],
-] as const;
-
 function LoginInner() {
   const router = useRouter();
   const params = useSearchParams();
@@ -101,22 +93,7 @@ function LoginInner() {
             </Button>
           </form>
 
-          <div className="mt-8 border-t border-line pt-5">
-            <p className="text-xs text-subtle">Comptes de démonstration — mot de passe <span className="font-mono text-muted">Passw0rd!</span></p>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {DEMO.map(([label, u]) => (
-                <button
-                  key={u}
-                  onClick={() => { setUsername(u); setPassword('Passw0rd!'); }}
-                  className="rounded-lg border border-line bg-paper px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:bg-surface hover:text-ink"
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <p className="mt-6 text-xs text-subtle">
+          <p className="mt-8 text-xs text-subtle">
             <Link href="/" className="font-medium text-muted hover:text-ink">← Retour à l'accueil</Link>
           </p>
         </motion.div>
