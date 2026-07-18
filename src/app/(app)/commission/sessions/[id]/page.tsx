@@ -208,6 +208,11 @@ function SessionActions({ session }: { session: SessionDetail }) {
           <FileText className="h-4 w-4" /> Programme (PDF)
         </Button>
       </a>
+      <a href={`/print/liste/${session.id}`} target="_blank" rel="noopener noreferrer">
+        <Button variant="outline">
+          <ListChecks className="h-4 w-4" /> Liste des étudiants (PDF)
+        </Button>
+      </a>
       {session.status === 'PREPARATION' && (
         <Button variant="primary" onClick={() => setConfirm('open')}>
           <DoorOpen className="h-4 w-4" /> Ouvrir la session

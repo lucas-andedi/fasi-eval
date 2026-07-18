@@ -4,13 +4,21 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   ArrowRight,
+  Award,
+  BarChart3,
   CalendarClock,
+  CheckCircle2,
   DoorOpen,
+  FileSpreadsheet,
+  FileText,
+  Gauge,
   Gavel,
   GraduationCap,
   Layers,
   ScrollText,
   SlidersHorizontal,
+  TriangleAlert,
+  UserX,
   Users,
 } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -18,9 +26,57 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/Button';
 import { SessionStatusBadge } from '@/components/ui/status';
 import { LoadingBlock, EmptyState } from '@/components/ui/Feedback';
+import { Table, THead, TH, TBody, TR, TD } from '@/components/ui/Table';
 import { api } from '@/lib/api';
 import { fmtDate } from '@/lib/utils';
+import { downloadBlobResponse } from '@/app/(app)/commission/deliberation/[id]/_helpers';
 import type { DefenseSession, Promotion, Student } from '@/lib/types';
+
+// ── Rapports clés (miroir backend GET /reports/overview) ────────────
+interface PromotionReportRow {
+  promotionId: number;
+  code: string;
+  label: string;
+  sessions: number;
+  students: number;
+  evaluated: number;
+  admis: number;
+  ajournes: number;
+  compensation: number;
+  avgGrade: number | null;
+  discrepancies: number;
+}
+interface SessionReportRow {
+  sessionId: number;
+  title: string;
+  promotionCode: string;
+  period: string | null;
+  status: DefenseSession['status'];
+  students: number;
+  evaluated: number;
+  admis: number;
+  ajournes: number;
+  compensation: number;
+  avgGrade: number | null;
+  discrepancies: number;
+}
+interface ReportsOverview {
+  totals: {
+    promotions: number;
+    sessions: number;
+    students: number;
+    evaluated: number;
+    admis: number;
+    ajournes: number;
+    compensation: number;
+    avgGrade: number | null;
+    discrepancies: number;
+  };
+  byPromotion: PromotionReportRow[];
+  bySession: SessionReportRow[];
+}
+
+const fmtGrade = (g: number | null) => (g == null ? '—' : g.toFixed(2));
 
 type SessionRow = DefenseSession & {
   promotion?: Promotion;
@@ -67,10 +123,20 @@ export default function CommissionDashboard() {
     queryKey: ['students'],
     queryFn: async () => (await api.get<Student[]>('/students')).data,
   });
+  const reportsQ = useQuery({
+    queryKey: ['reports', 'overview'],
+    queryFn: async () => (await api.get<ReportsOverview>('/reports/overview')).data,
+  });
 
   const sessions = sessionsQ.data ?? [];
   const promotions = promotionsQ.data ?? [];
   const students = studentsQ.data ?? [];
+  const report = reportsQ.data;
+
+  const exportExcel = async () => {
+    const res = await api.get<Blob>('/reports/export', { responseType: 'blob' });
+    downloadBlobResponse(res, 'rapport_statistique.xlsx');
+  };
 
   const count = (s: DefenseSession['status']) => sessions.filter((x) => x.status === s).length;
 
@@ -204,6 +270,198 @@ export default function CommissionDashboard() {
           </div>
         </motion.div>
       </div>
+
+      {/* ─────────────── Rapports clés ─────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="mt-10"
+      >
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+              <BarChart3 className="h-5 w-5 text-accent" /> Rapports clés
+            </h2>
+            <p className="mt-0.5 text-sm text-muted">
+              Statistiques agrégées par promotion et par session de défense.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={exportExcel} disabled={!report}>
+              <FileSpreadsheet className="h-4 w-4" /> Exporter Excel
+            </Button>
+            <a href="/print/rapport" target="_blank" rel="noopener noreferrer">
+              <Button variant="outline">
+                <FileText className="h-4 w-4" /> Rapport PDF
+              </Button>
+            </a>
+          </div>
+        </div>
+
+        {reportsQ.isLoading ? (
+          <LoadingBlock />
+        ) : !report ? (
+          <EmptyState
+            icon={BarChart3}
+            title="Statistiques indisponibles"
+            description="Les données de rapport n’ont pas pu être chargées."
+          />
+        ) : (
+          <>
+            {/* Totaux globaux */}
+            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-7">
+              <StatCard label="Sessions" value={report.totals.sessions} icon={CalendarClock} tone="violet" index={0} />
+              <StatCard label="Étudiants" value={report.totals.students} icon={Users} tone="teal" index={1} />
+              <StatCard label="Évalués" value={report.totals.evaluated} icon={CheckCircle2} tone="teal" index={2} />
+              <StatCard label="Admis" value={report.totals.admis} icon={Award} tone="teal" index={3} />
+              <StatCard label="Ajournés" value={report.totals.ajournes} icon={UserX} tone="gold" index={4} />
+              <StatCard label="Écarts" value={report.totals.discrepancies} icon={TriangleAlert} tone="danger" index={5} />
+              <StatCard label="Moyenne générale" value={fmtGrade(report.totals.avgGrade)} icon={Gauge} tone="violet" index={6} />
+            </div>
+
+            {/* Par promotion */}
+            <div className="mb-8">
+              <h3 className="mb-3 text-base font-bold text-ink">Par promotion</h3>
+              {report.byPromotion.length === 0 ? (
+                <EmptyState icon={Layers} title="Aucune promotion" description="Aucune donnée à agréger." />
+              ) : (
+                <>
+                  {/* Desktop */}
+                  <div className="hidden md:block">
+                    <Table>
+                      <THead>
+                        <TR>
+                          <TH>Promotion</TH>
+                          <TH className="text-right">Sessions</TH>
+                          <TH className="text-right">Étudiants</TH>
+                          <TH className="text-right">Évalués</TH>
+                          <TH className="text-right">Admis</TH>
+                          <TH className="text-right">Ajournés</TH>
+                          <TH className="text-right">Comp.</TH>
+                          <TH className="text-right">Moyenne</TH>
+                          <TH className="text-right">Écarts</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {report.byPromotion.map((r) => (
+                          <TR key={r.promotionId}>
+                            <TD>
+                              <span className="font-medium text-ink">{r.code}</span>
+                              <span className="ml-2 text-subtle">{r.label}</span>
+                            </TD>
+                            <TD className="text-right tabular">{r.sessions}</TD>
+                            <TD className="text-right tabular">{r.students}</TD>
+                            <TD className="text-right tabular">{r.evaluated}</TD>
+                            <TD className="text-right tabular">{r.admis}</TD>
+                            <TD className="text-right tabular">{r.ajournes}</TD>
+                            <TD className="text-right tabular">{r.compensation}</TD>
+                            <TD className="text-right tabular font-medium text-ink">{fmtGrade(r.avgGrade)}</TD>
+                            <TD className="text-right tabular">{r.discrepancies}</TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </Table>
+                  </div>
+                  {/* Mobile */}
+                  <div className="space-y-3 md:hidden">
+                    {report.byPromotion.map((r) => (
+                      <div key={r.promotionId} className="rounded-2xl border border-line bg-paper p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-ink">{r.code}</p>
+                          <span className="text-sm font-medium text-accent">Moy. {fmtGrade(r.avgGrade)}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-subtle">{r.label}</p>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted">
+                          <span>Sessions : <b className="text-ink">{r.sessions}</b></span>
+                          <span>Étud. : <b className="text-ink">{r.students}</b></span>
+                          <span>Évalués : <b className="text-ink">{r.evaluated}</b></span>
+                          <span>Admis : <b className="text-ink">{r.admis}</b></span>
+                          <span>Ajournés : <b className="text-ink">{r.ajournes}</b></span>
+                          <span>Écarts : <b className="text-ink">{r.discrepancies}</b></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Par session */}
+            <div>
+              <h3 className="mb-3 text-base font-bold text-ink">Par session</h3>
+              {report.bySession.length === 0 ? (
+                <EmptyState icon={CalendarClock} title="Aucune session" description="Aucune donnée à agréger." />
+              ) : (
+                <>
+                  {/* Desktop */}
+                  <div className="hidden md:block">
+                    <Table>
+                      <THead>
+                        <TR>
+                          <TH>Session</TH>
+                          <TH>Promo</TH>
+                          <TH>Période</TH>
+                          <TH>Statut</TH>
+                          <TH className="text-right">Étud.</TH>
+                          <TH className="text-right">Éval.</TH>
+                          <TH className="text-right">Admis</TH>
+                          <TH className="text-right">Ajournés</TH>
+                          <TH className="text-right">Comp.</TH>
+                          <TH className="text-right">Moyenne</TH>
+                          <TH className="text-right">Écarts</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {report.bySession.map((r) => (
+                          <TR key={r.sessionId}>
+                            <TD className="font-medium text-ink">{r.title}</TD>
+                            <TD>{r.promotionCode}</TD>
+                            <TD>{r.period ?? '—'}</TD>
+                            <TD><SessionStatusBadge status={r.status} /></TD>
+                            <TD className="text-right tabular">{r.students}</TD>
+                            <TD className="text-right tabular">{r.evaluated}</TD>
+                            <TD className="text-right tabular">{r.admis}</TD>
+                            <TD className="text-right tabular">{r.ajournes}</TD>
+                            <TD className="text-right tabular">{r.compensation}</TD>
+                            <TD className="text-right tabular font-medium text-ink">{fmtGrade(r.avgGrade)}</TD>
+                            <TD className="text-right tabular">{r.discrepancies}</TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </Table>
+                  </div>
+                  {/* Mobile */}
+                  <div className="space-y-3 md:hidden">
+                    {report.bySession.map((r) => (
+                      <div key={r.sessionId} className="rounded-2xl border border-line bg-paper p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-semibold text-ink">{r.title}</p>
+                          <SessionStatusBadge status={r.status} />
+                        </div>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-subtle">
+                          <span className="font-medium text-muted">{r.promotionCode}</span>
+                          {r.period && (<><span>·</span><span>{r.period}</span></>)}
+                          <span>·</span>
+                          <span className="text-accent">Moy. {fmtGrade(r.avgGrade)}</span>
+                        </p>
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted">
+                          <span>Étud. : <b className="text-ink">{r.students}</b></span>
+                          <span>Évalués : <b className="text-ink">{r.evaluated}</b></span>
+                          <span>Admis : <b className="text-ink">{r.admis}</b></span>
+                          <span>Ajournés : <b className="text-ink">{r.ajournes}</b></span>
+                          <span>Comp. : <b className="text-ink">{r.compensation}</b></span>
+                          <span>Écarts : <b className="text-ink">{r.discrepancies}</b></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </motion.section>
     </div>
   );
 }
