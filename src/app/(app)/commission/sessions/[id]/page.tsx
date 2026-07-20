@@ -29,6 +29,7 @@ import {
   Upload,
   FileSpreadsheet,
   Search,
+  Shuffle,
   UsersRound,
 } from 'lucide-react';
 import { api, apiError } from '@/lib/api';
@@ -1011,6 +1012,10 @@ function RegularAssignCard({ session, onDone }: { session: SessionDetail; onDone
     () => (students ?? []).filter((s) => !enrolled.has(s.id)),
     [students, enrolled],
   );
+  // Étudiants réellement sélectionnables (disponibles = non affectés à un autre jury).
+  const selectable = useMemo(() => available.filter((s) => s.available !== false), [available]);
+
+  const [count, setCount] = useState('');
 
   const toggle = (id: number) =>
     setSelected((prev) => {
@@ -1018,6 +1023,18 @@ function RegularAssignCard({ session, onDone }: { session: SessionDetail; onDone
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+
+  // Tirage aléatoire : sélectionne N étudiants disponibles au hasard (ajustables ensuite).
+  const pickRandom = () => {
+    const n = Math.max(0, Math.min(Math.floor(Number(count) || 0), selectable.length));
+    if (n === 0) return;
+    const pool = selectable.map((s) => s.id);
+    for (let i = pool.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    setSelected(new Set(pool.slice(0, n)));
+  };
 
   const submit = async () => {
     if (selected.size === 0) return;
@@ -1046,6 +1063,37 @@ function RegularAssignCard({ session, onDone }: { session: SessionDetail; onDone
         title="Affecter des réguliers"
         subtitle="Sélectionnez les étudiants de la promotion à inscrire comme réguliers."
       />
+
+      {/* Affectation aléatoire : on saisit un nombre, le système tire au hasard parmi les disponibles. */}
+      <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-3">
+        <div className="min-w-0">
+          <label className="mb-1 block text-xs font-medium text-muted">Tirage aléatoire</label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={1}
+              max={selectable.length || undefined}
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              placeholder="Nombre"
+              className="w-28"
+            />
+            <Button type="button" variant="outline" onClick={pickRandom} disabled={selectable.length === 0}>
+              <Shuffle className="h-4 w-4" /> Tirer au sort
+            </Button>
+          </div>
+        </div>
+        <p className="flex-1 text-xs text-subtle">
+          {selectable.length} étudiant{selectable.length > 1 ? 's' : ''} disponible{selectable.length > 1 ? 's' : ''}.
+          {' '}Le système en sélectionne le nombre demandé au hasard ; vous pouvez ensuite ajuster (cocher/décocher) avant de valider.
+        </p>
+        {selected.size > 0 && (
+          <Button type="button" variant="ghost" onClick={() => setSelected(new Set())}>
+            Réinitialiser
+          </Button>
+        )}
+      </div>
+
       <div className="mt-4">
         <StudentMultiSelect
           students={available}
